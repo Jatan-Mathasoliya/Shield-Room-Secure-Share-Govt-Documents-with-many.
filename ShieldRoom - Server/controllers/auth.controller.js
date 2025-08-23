@@ -12,10 +12,14 @@ dotenv.config();
 const maxAge = 1 * 60 * 60; // 1 hour
 
 export const sendSignupOTP = async (req, res) => {
-    const { email } = req.body;
+    const { email, username, password, rePassword } = req.body;
 
-    if (!email) {
-        return res.status(400).json({ message: "Email is required" });
+    if (!email || !password || !username || !rePassword) {
+        return res.status(400).json({ message: "Email, Password, Username and Re-Password are required" });
+    }
+
+    if (password !== rePassword) {
+        return res.status(400).json({ message: "Password and Re-Entered Password do not match" });
     }
 
     const existingUser = await User.findOne({ email });
@@ -43,10 +47,10 @@ export const sendSignupOTP = async (req, res) => {
 };
 
 export const verifySignupOTP = async (req, res) => {
-    const { email, otp, password } = req.body;
+    const { email, username, otp, password } = req.body;
 
-    if (!email || !otp || !password) {
-        return res.status(400).json({ message: "Email, OTP and Password are required" });
+    if (!otp) {
+        return res.status(400).json({ message: "OTP is required" });
     }
 
     const record = await OTP.findOne({ email });
@@ -66,6 +70,7 @@ export const verifySignupOTP = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = new User({
+        username,
         email,
         password: hashedPassword,
         isVerified: true
@@ -78,16 +83,22 @@ export const verifySignupOTP = async (req, res) => {
 };
 
 export const sendLoginOTP = async (req, res) => {
-    const { email } = req.body;
+    const { email, password } = req.body;
 
-    if (!email) {
-        return res.status(400).json({ message: "Email is required" });
+    if (!email || !password) {
+        return res.status(400).json({ message: "Email and Password are required" });
     }
 
     const user = await User.findOne({ email });
 
     if (!user) {
         return res.status(400).json({ message: "User not found" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+        return res.status(400).json({ message: "Invalid password" });
     }
 
     const otpCode = generateOTP();
@@ -109,10 +120,10 @@ export const sendLoginOTP = async (req, res) => {
 };
 
 export const verifyLoginOTP = async (req, res) => {
-    const { email, otp } = req.body;
+    const { email, password, otp } = req.body;
 
-    if (!email || !otp) {
-        return res.status(400).json({ message: "Email and OTP required" });
+    if (!otp) {
+        return res.status(400).json({ message: "OTP is required" });
     }
 
     const user = await User.findOne({ email });
@@ -148,8 +159,34 @@ export const verifyLoginOTP = async (req, res) => {
         maxAge,
         httpOnly: true,
         secure: true,
-        sameSite:"strict"
+        sameSite: "strict"
     });
 
     res.json({ message: "Login successful", token });
 };
+
+
+export const reSendOtp = async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+    }
+
+    const otpCode = generateOTP();
+    const expiresAt = new Date(Date.now() + 60 * 1000); // 1 minute
+
+    await OTP.findOneAndUpdate(
+        { email },
+        { otp: otpCode, expiresAt },
+        { upsert: true }
+    );
+
+    await sendEmail(
+        email,
+        "Your OTP Code for ShieldRoom",
+        `Your OTP is ${otpCode}. It expires in 1 minute.`
+    );
+
+    res.json({ message: "OTP resent" });
+}
