@@ -190,3 +190,88 @@ export const reSendOtp = async (req, res) => {
 
     res.json({ message: "OTP resent" });
 }
+
+export const forgotPasswordOTP = async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+    }
+
+    const otpCode = generateOTP();
+    const expiresAt = new Date(Date.now() + 60 * 1000); // 1 minute
+
+    await OTP.findOneAndUpdate(
+        { email },
+        { otp: otpCode, expiresAt },
+        { upsert: true }
+    );
+
+    await sendEmail(
+        email,
+        "Your OTP Code for ShieldRoom account Password Reset",
+        `Your OTP is ${otpCode}. It expires in 1 minute.`
+    );
+
+    res.json({ message: "OTP sent" });
+}
+
+export const forgotPassOTPVerify = async (req, res) => {
+    const { email, otp } = req.body;
+
+    if (!otp) {
+        return res.status(400).json({ message: "OTP is required" });
+    }
+
+    const record = await OTP.findOne({ email });
+
+    if (!record) {
+        return res.status(400).json({ message: "OTP not found" });
+    }
+
+    if (record.otp !== otp) {
+        return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    if (record.expiresAt < new Date()) {
+        return res.status(400).json({ message: "OTP expired" });
+    }
+
+    await OTP.deleteOne({ email });
+
+    res.json({ message: "Reset Password OTP Verification successful" });
+}
+
+export const resetPassword = async (req, res) => {
+    const { email, newPassword, reNewPassword } = req.body;
+
+    if (!newPassword || !reNewPassword) {
+        return res.status(400).json({ message: "New Password and Re-Entered New Password are required" });
+    }
+
+    if (newPassword !== reNewPassword) {
+        return res.status(400).json({ message: "New Password and Re-Entered New Password do not match" });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        return res.status(400).json({ message: "User not found" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: "Password reset successful" });
+}
+
+export const logOut = async (req, res) => {
+    try {
+        res.cookie("jwt", "", { maxAge: 1, secure: true, sameSite: "None" });
+        res.status(200).send("LogOut Successful.");
+    } catch (error) {
+        console.log({ error });
+        return res.status(500).send("Internal server error");
+    }
+};
