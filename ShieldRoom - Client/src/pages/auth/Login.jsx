@@ -1,14 +1,62 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { LOGIN_OTP, FORGOT_PASSWORD } from '../../utils/constants';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Add your login logic here
-    console.log('Login form submitted');
+    const data = { email, password };
+
+    if (!email || !password) {
+      toast.error('Email and password are required');
+      return;
+    }
+
+    const response = axios.post(LOGIN_OTP, data);
+
+    response.then((res) => {
+      navigate('/auth/verify-otp', {
+        state: {
+          username: "",
+          email,
+          password,
+          authType: 'login'
+        }
+      });
+      toast.success('Kindly check your email:- ' + email + ' for the OTP');
+
+    }).catch((error) => {
+      console.error('Login failed', error);
+      toast.error('Login failed');
+    });
+  };
+
+  const handleForgotPass = (e) => {
+    e.preventDefault();
+
+    const data = { email };
+
+    if (!email) {
+      toast.error('Email is required');
+    }
+
+    const response = axios.post(FORGOT_PASSWORD, data);
+
+    response.then((res) => {
+      toast.success('Kindly check your email:- ' + email + ' for the password reset link');
+    }).catch((error) => { 
+      toast.error('Forgot password failed');
+    });
   };
 
   return (
@@ -30,6 +78,8 @@ function Login() {
               <input
                 type="email"
                 placeholder="Email Address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 bg-gray-50 focus:bg-white"
               />
             </div>
@@ -40,6 +90,8 @@ function Login() {
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-12 pr-12 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 bg-gray-50 focus:bg-white"
               />
               <button
@@ -64,7 +116,7 @@ function Login() {
                 </label>
               </div>
               <span className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer font-medium transition-colors">
-                <Link to="/auth/forgot-password">Forgot Password?</Link>
+                <button onClick={handleForgotPass}>Forgot Password?</button>
               </span>
             </div>
 
@@ -73,7 +125,7 @@ function Login() {
               onClick={handleSubmit}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
             >
-              Sign In
+              Login
             </button>
           </div>
 

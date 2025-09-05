@@ -6,7 +6,9 @@ import Home from './pages/Home'
 import AuthPage from './pages/auth/AuthPage'
 import Signup from './pages/auth/Signup'
 import Login from './pages/auth/Login'
-import ForgotPassword from './pages/auth/ForgotPassword'
+import VerifyOTP from './pages/auth/VerifyOTP'
+import Dashboard from './pages/Dashboard/Dashboard'
+import Resetpass from './pages/auth/Resetpass'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -20,8 +22,10 @@ function App() {
             <Route index element={<Signup />} />
             <Route path="signup" element={<Signup />} />
             <Route path="login" element={<Login />} />
-            <Route path="forgot-password" element={<ForgotPassword />} />
+            <Route path='verify-otp' element={<VerifyOTP />} />
+            <Route path='reset-password/:token' element={<Resetpass />} />
           </Route>
+          <Route path='/dashboard' element={<Dashboard />} />
         </Routes>
       </BrowserRouter>
     </>

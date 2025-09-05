@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { response } from 'express';
 import dotenv from 'dotenv'
+import nodemailer from 'nodemailer'
 
 dotenv.config();
 
@@ -29,7 +30,7 @@ export const sendSignupOTP = async (req, res) => {
     }
 
     const otpCode = generateOTP();
-    const expiresAt = new Date(Date.now() + 60 * 1000); // 1 minute
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000);
 
     await OTP.findOneAndUpdate(
         { email },
@@ -40,7 +41,7 @@ export const sendSignupOTP = async (req, res) => {
     await sendEmail(
         email,
         "Welcome to ShieldRoom 🚀",
-        `Your Signup OTP is ${otpCode}. It expires in 1 minute.`
+        `Your Signup OTP is ${otpCode}. It expires in 2 minutes.`
     );
 
     res.json({ message: "OTP sent" });
@@ -77,6 +78,7 @@ export const verifySignupOTP = async (req, res) => {
     });
 
     await user.save();
+
     await OTP.deleteOne({ email });
 
     res.json({ message: "Signup successful" });
@@ -120,7 +122,7 @@ export const sendLoginOTP = async (req, res) => {
 };
 
 export const verifyLoginOTP = async (req, res) => {
-    const { email, password, otp } = req.body;
+    const { email, otp } = req.body;
 
     if (!otp) {
         return res.status(400).json({ message: "OTP is required" });
@@ -162,7 +164,7 @@ export const verifyLoginOTP = async (req, res) => {
         sameSite: "strict"
     });
 
-    res.json({ message: "Login successful", token });
+    res.json({ message: "Login successful" });
 };
 
 
@@ -191,79 +193,83 @@ export const reSendOtp = async (req, res) => {
     res.json({ message: "OTP resent" });
 }
 
-export const forgotPasswordOTP = async (req, res) => {
-    const { email } = req.body;
+export const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
 
-    if (!email) {
-        return res.status(400).json({ message: "Email is required" });
+        const user = await User.findOne({ email })
+
+        if (!user) {
+            res.status(404).json({ message: "User not found" });
+        }
+
+        const resetToken = jwt.sign(
+            { id: user._id, email: user.email }, 
+            process.env.JWT_SECRET,
+            { expiresIn: "15m" }
+        )
+
+        const resetLink = `http://localhost:5173/auth/reset-password/${resetToken}`;
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            },
+        })
+
+        await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: user.email,
+            subject: "Password Reset Request - ShieldRoom account",
+            html: `
+        <p>You requested a password reset.</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetLink}">${resetLink}</a>
+        <p>This link will expire in 15 minutes.</p>
+      `,
+        })
+
+        res.status(200).json({ message: "Password reset Link sent to " + user.email })
+
+    } catch (error) {
+        res.status(500).json({ message: error.message })
     }
-
-    const otpCode = generateOTP();
-    const expiresAt = new Date(Date.now() + 60 * 1000); // 1 minute
-
-    await OTP.findOneAndUpdate(
-        { email },
-        { otp: otpCode, expiresAt },
-        { upsert: true }
-    );
-
-    await sendEmail(
-        email,
-        "Your OTP Code for ShieldRoom account Password Reset",
-        `Your OTP is ${otpCode}. It expires in 1 minute.`
-    );
-
-    res.json({ message: "OTP sent" });
-}
-
-export const forgotPassOTPVerify = async (req, res) => {
-    const { email, otp } = req.body;
-
-    if (!otp) {
-        return res.status(400).json({ message: "OTP is required" });
-    }
-
-    const record = await OTP.findOne({ email });
-
-    if (!record) {
-        return res.status(400).json({ message: "OTP not found" });
-    }
-
-    if (record.otp !== otp) {
-        return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    if (record.expiresAt < new Date()) {
-        return res.status(400).json({ message: "OTP expired" });
-    }
-
-    await OTP.deleteOne({ email });
-
-    res.json({ message: "Reset Password OTP Verification successful" });
 }
 
 export const resetPassword = async (req, res) => {
-    const { email, newPassword, reNewPassword } = req.body;
+    try {
 
-    if (!newPassword || !reNewPassword) {
-        return res.status(400).json({ message: "New Password and Re-Entered New Password are required" });
+        const { token } = req.params;
+        const { newPassword, reNewPassword } = req.body;
+
+        if (!newPassword || !reNewPassword) {
+            return res.status(400).json({ message: "New Password and Re-Entered New Password are required" });
+        }
+
+        if (newPassword !== reNewPassword) {
+            return res.status(400).json({ message: "New Password and Re-Entered New Password do not match" });
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        const user = await User.findById(decoded.id);
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+        user.password = hashedPassword;
+        await user.save();
+
+        res.json({ message: "Password reset successful" });
+
+    } catch (err) {
+        console.log({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
-
-    if (newPassword !== reNewPassword) {
-        return res.status(400).json({ message: "New Password and Re-Entered New Password do not match" });
-    }
-
-    const user = await User.findOne({ email });
-
-    if (!user) {
-        return res.status(400).json({ message: "User not found" });
-    }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-    user.password = hashedPassword;
-    await user.save();
-
-    res.json({ message: "Password reset successful" });
 }
 
 export const logOut = async (req, res) => {

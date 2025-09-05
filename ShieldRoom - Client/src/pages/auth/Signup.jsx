@@ -1,14 +1,51 @@
-import React, { useState } from 'react';
+import React, { use, useState } from 'react';
 import { User, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { SIGNUP_OTP } from '../../utils/constants';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+
 function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Add your signup logic here
+
+    const userData = {
+      email,
+      username: userName,
+      password,
+      rePassword: confirmPassword
+    };
+
+    axios.post(SIGNUP_OTP, userData)
+      .then(response => {
+        console.log('Signup successful:', response.data.message);
+
+        navigate('/auth/verify-otp', {
+          state: {
+            username: userName,
+            email,
+            password,
+            authType: 'signup'
+          }
+        });
+
+        toast.success('Signup successful! Please check your email for the OTP.');
+      })
+      .catch(error => {
+        toast.error(error.response?.data?.message || 'Signup failed. Please try again.');
+        console.error('Signup error:', error);
+      });
+
     console.log('Signup form submitted');
   };
 
@@ -31,6 +68,8 @@ function Signup() {
               <input
                 type="text"
                 placeholder="UserName"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 bg-gray-50 focus:bg-white"
               />
             </div>
@@ -41,6 +80,8 @@ function Signup() {
               <input
                 type="email"
                 placeholder="Email Address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 bg-gray-50 focus:bg-white"
               />
             </div>
@@ -51,6 +92,8 @@ function Signup() {
               <input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-12 pr-12 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 bg-gray-50 focus:bg-white"
               />
               <button
@@ -68,6 +111,8 @@ function Signup() {
               <input
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full pl-12 pr-12 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 bg-gray-50 focus:bg-white"
               />
               <button

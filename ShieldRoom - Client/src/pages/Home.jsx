@@ -1,5 +1,6 @@
 import React from 'react';
 import { Mail, Smartphone, Lock, Users, Folder, ShieldCheck, ArrowRight, PlayCircle, Fingerprint, Cloud, Globe } from 'lucide-react';
+import { Link, NavLink } from 'react-router-dom';
 function Home() {
     return (
         <div className="min-h-screen bg-gray-50 font-inter text-gray-800 antialiased">
@@ -15,7 +16,7 @@ function Home() {
                         <a href="#features" className="text-gray-600 hover:text-blue-600 font-medium transition duration-300">Features</a>
                         <a href="#how-it-works" className="text-gray-600 hover:text-blue-600 font-medium transition duration-300">How it Works</a>
                         <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-lg shadow-md transition duration-300 transform hover:scale-105">
-                            Sign In
+                            <Link to="/auth/login">LogIn</Link>
                         </button>
                     </div>
                 </nav>
@@ -38,7 +39,7 @@ function Home() {
                     </p>
                     <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
                         <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-300 transform hover:scale-105 flex items-center gap-2">
-                            Get Started Free <ArrowRight size={20} />
+                            <Link to="/auth">Get Started</Link> <ArrowRight size={20} />
                         </button>
                         <button className="bg-white hover:bg-gray-100 text-blue-600 border border-blue-600 font-bold py-3 px-8 rounded-lg shadow-md transition duration-300 transform hover:scale-105 flex items-center gap-2">
                             <PlayCircle size={20} /> Watch Demo
